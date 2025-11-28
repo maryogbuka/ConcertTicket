@@ -1,26 +1,33 @@
-// app/api/paystack/initiate.js
+// app/api/paystack/initiate/route.js
 import { NextResponse } from 'next/server';
-import fetch from 'node-fetch';
 
 export async function POST(req) {
   try {
-    const body = await req.json();
-    const { email, amount, metadata = {} } = body;
-    if (!email || !amount) return NextResponse.json({ success: false, message: 'Missing fields' }, { status: 400 });
+    const { amount, email, reference } = await req.json();
 
-    const initRes = await fetch('https://api.paystack.co/transaction/initialize', {
+    // Use native fetch instead of node-fetch
+    const response = await fetch('https://api.paystack.co/transaction/initialize', {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, amount, metadata })
+      body: JSON.stringify({
+        email,
+        amount: amount * 100, // Convert to kobo
+        reference,
+      }),
     });
 
-    const data = await initRes.json();
+    const data = await response.json();
+
+    if (!data.status) {
+      return NextResponse.json({ error: data.message }, { status: 400 });
+    }
+
     return NextResponse.json(data);
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ success: false, error: String(error) }, { status: 500 });
+    console.error('Paystack initiation error:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -58,19 +58,22 @@ export default function ConcertTicketWebsite() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-  const handleCheckout = () => {
-    if (cart.length === 0) return;
-    setIsCartOpen(false);
-    
-    // Check if it's only regular tickets (free)
-    const hasOnlyRegularTickets = cart.every(item => item.type === 'regular');
-    
-    if (hasOnlyRegularTickets) {
-      setIsFreeTicketOpen(true);
-    } else {
-      setIsPaymentOpen(true);
-    }
-  };
+    const handleCheckout = () => {
+  if (cart.length === 0) return;
+  setIsCartOpen(false);
+  
+  // Check if it's only regular tickets (free)
+  const hasOnlyRegularTickets = cart.every(item => item.type === 'regular');
+  const hasVipTickets = cart.some(item => item.type === 'vip');
+  
+  if (hasOnlyRegularTickets) {
+    // Only free tickets - go to free ticket modal
+    setIsFreeTicketOpen(true);
+  } else if (hasVipTickets) {
+    // Has VIP tickets - go to payment modal
+    setIsPaymentOpen(true);
+  }
+};
 
   const handleDirectFreeTicket = (ticketType, quantity) => {
     setCurrentTicketType(ticketType);
@@ -147,39 +150,134 @@ const initializePaystackPayment = async (ticketData, customerInfo, ticketId) => 
     const totalAmount = ticketData.price * ticketData.quantity;
     const amountInKobo = totalAmount * 100; // Paystack uses kobo
 
+    // Check if Paystack is loaded
+    if (typeof window.PaystackPop === 'undefined') {
+      throw new Error('Paystack payment service is not available. Please refresh the page.');
+    }
+
     // Create payment data
     const paymentData = {
+      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
       email: customerInfo.email,
       amount: amountInKobo,
       reference: ticketId,
       metadata: {
         ticket_id: ticketId,
         customer_name: customerInfo.name,
-        customer_phone: customerInfo.phone,
+        customer_phone: customerInfo.phone || '',
         ticket_type: ticketData.name,
         ticket_quantity: ticketData.quantity,
         total_amount: totalAmount
       },
       currency: 'NGN',
       channels: ['card', 'bank', 'ussd', 'qr', 'mobile_money'],
-      callback_url: `${process.env.NEXT_PUBLIC_BASE_URL}/payment-success?ticketId=${ticketId}`,
-    };
-
-    // Initialize Paystack payment
-    const handler = window.PaystackPop.setup({
-      key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-      ...paymentData,
+  // In initializePaystackPayment function, update the callback:
+callback: function(response) {
+  // This function will be called when payment is successful
+  console.log('✅ Payment successful!', response);
+  
+  if (response.status === 'success') {
+    // Send email notifications after successful payment
+    sendEmailNotification(ticketData, customerInfo, ticketId, false)
+      .then(() => {
+        // Remove the ticket from pending status
+        const pendingTickets = JSON.parse(localStorage.getItem('pendingTickets') || '{}');
+        delete pendingTickets[ticketId];
+        localStorage.setItem('pendingTickets', JSON.stringify(pendingTickets));
+        
+        // Remove from cart
+        setCart(prev => prev.filter(item => !(item.type === 'vip' && item.quantity === ticketData.quantity)));
+        
+        if (window.showFancyNotification) {
+          window.showFancyNotification(
+            'success', 
+            'Payment Successful!', 
+            `Your VIP tickets have been confirmed! Check your email for details. Ticket ID: ${ticketId}`
+          );
+        }
+        
+        // Close payment modal if it's open
+        setIsPaymentOpen(false);
+        setCustomerInfo({ email: '', name: '', phone: '' });
+      })
+      .catch(emailError => {
+        console.error('Email sending failed:', emailError);
+        if (window.showFancyNotification) {
+          window.showFancyNotification(
+            'success', 
+            'Payment Successful!', 
+            `Your VIP tickets are confirmed! Ticket ID: ${ticketId} (Email issue)`
+          );
+        }
+      });
+  }
+},
       onClose: function() {
         console.log('🔒 Payment window closed');
-        alert('Payment window closed. If you completed payment, you will receive a confirmation email.');
+        if (window.showFancyNotification) {
+          window.showFancyNotification(
+            'info', 
+            'Payment Cancelled', 
+            'You can complete your payment later from your cart.'
+          );
+        }
       }
-    });
+    };
 
+    // Add this helper function
+const processMixedCart = async () => {
+  try {
+    setIsProcessing(true);
+    
+    const ticketId = generateTicketId();
+    const freeItems = cart.filter(item => item.type === 'regular');
+    const vipItems = cart.filter(item => item.type === 'vip');
+    
+    // Process free tickets immediately
+    for (const item of freeItems) {
+      const ticketData = {
+        type: item.type,
+        quantity: item.quantity,
+        ...ticketTypes[item.type]
+      };
+      await sendEmailNotification(ticketData, customerInfo, ticketId, true);
+    }
+    
+    // Process VIP tickets through Paystack
+    if (vipItems.length > 0) {
+      const vipItem = vipItems[0]; // Take first VIP item for Paystack
+      const ticketData = {
+        name: vipItem.name,
+        price: vipItem.price,
+        quantity: vipItem.quantity,
+        type: vipItem.type
+      };
+      
+      await initializePaystackPayment(ticketData, customerInfo, ticketId);
+    }
+    
+  } catch (error) {
+    console.error('Mixed cart processing error:', error);
+    throw error;
+  } finally {
+    setIsProcessing(false);
+  }
+};
+
+    // Initialize Paystack payment
+    const handler = window.PaystackPop.setup(paymentData);
     handler.openIframe();
     
   } catch (error) {
     console.error('❌ Paystack initialization error:', error);
-    alert('Payment system error. Please try again or contact support.');
+    
+    if (window.showFancyNotification) {
+      window.showFancyNotification(
+        'error', 
+        'Payment Error', 
+        'Failed to initialize payment. Please try again.'
+      );
+    }
     throw error;
   }
 };
@@ -210,7 +308,8 @@ const processTicketOrder = async (ticketData, customerInfo, isFree = false) => {
       // Then initialize Paystack payment
       await initializePaystackPayment(ticketData, customerInfo, ticketId);
       
-      return ticketId;
+      // Don't return ticketId here since we're redirecting to Paystack
+      return null;
     }
     
   } catch (error) {
@@ -315,20 +414,47 @@ if (window.showFancyNotification) {
 };
 
   const processPayment = async () => {
-    if (!customerInfo.email || !customerInfo.name) {
-      alert('Please fill in required fields');
-      return;
+  if (!customerInfo.email || !customerInfo.name) {
+    if (window.showFancyNotification) {
+      window.showFancyNotification('error', 'Missing Information', 'Please fill in all required fields (name and email)');
     }
+    return;
+  }
 
-    try {
-      setIsProcessing(true);
+  try {
+    setIsProcessing(true);
+    
+    // Check if there are VIP tickets in cart
+    const hasVipTickets = cart.some(item => item.type === 'vip');
+    
+    if (hasVipTickets) {
+      // For VIP tickets, process through Paystack
+      console.log('💳 Processing VIP tickets through Paystack...');
       
-      // Simulate payment processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Generate ticket ID for the entire order
       const ticketId = generateTicketId();
       
-      // Process each ticket in cart
+      // Process each VIP ticket through Paystack
+      const vipItems = cart.filter(item => item.type === 'vip');
+      
+      for (const item of vipItems) {
+        const ticketData = {
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity,
+          type: item.type
+        };
+        
+        // Initialize Paystack payment for VIP tickets
+        await initializePaystackPayment(ticketData, customerInfo, ticketId);
+      }
+      
+    } else 
+      {
+      // For free tickets only, process directly
+      console.log('🎟️ Processing free tickets only...');
+      const ticketId = generateTicketId();
+      
       for (const item of cart) {
         const ticketData = {
           type: item.type,
@@ -336,24 +462,33 @@ if (window.showFancyNotification) {
           ...ticketTypes[item.type]
         };
         
-        await sendEmailNotification(ticketData, customerInfo, ticketId, item.type === 'regular');
+        await sendEmailNotification(ticketData, customerInfo, ticketId, true);
       }
 
-      // Show success message
-      alert(`🎉 Payment successful! Check your email (${customerInfo.email}) for your tickets with ID: ${ticketId}`);
+      // Show success message for free tickets
+      if (window.showFancyNotification) {
+        window.showFancyNotification(
+          'success', 
+          'Free Tickets Confirmed!', 
+          `Your free tickets have been reserved! Check your email for confirmation.`
+        );
+      }
       
       // Reset everything
       setCart([]);
       setCustomerInfo({ email: '', name: '', phone: '' });
       setIsPaymentOpen(false);
-      
-    } catch (error) {
-      console.error('Payment error:', error);
-      alert('Payment failed: ' + error.message);
-    } finally {
-      setIsProcessing(false);
     }
-  };
+    
+  } catch (error) {
+    console.error('Payment error:', error);
+    if (window.showFancyNotification) {
+      window.showFancyNotification('error', 'Payment Failed', 'There was an issue processing your payment. Please try again.');
+    }
+  } finally {
+    setIsProcessing(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-white">
@@ -685,18 +820,27 @@ const TicketSection = ({ ticketTypes, onAddToCart, onDirectFreeTicket }) => {
       setQuantity(prev => Math.max(0, prev + change));
     };
 
-    const handleAdd = () => {
-      if (quantity === 0) return;
+ const handleAdd = () => {
+  if (quantity === 0) return;
 
-      if (type === 'regular' && data.price === 0) {
-        // For free tickets, go directly to customer info
-        onDirectFreeTicket(type, quantity);
-      } else {
-        // For paid tickets, add to cart
-        onAddToCart(type, quantity);
-        setQuantity(0);
-      }
-    };
+  if (type === 'regular' && data.price === 0) {
+    // For free tickets, go directly to customer info
+    onDirectFreeTicket(type, quantity);
+  } else {
+    // For paid tickets, add to cart
+    onAddToCart(type, quantity);
+    setQuantity(0);
+    
+    // Show notification for VIP tickets added to cart
+    if (type === 'vip' && window.showFancyNotification) {
+      window.showFancyNotification(
+        'success',
+        'VIP Tickets Added',
+        `${quantity} VIP ticket(s) added to cart. Proceed to checkout to complete payment.`
+      );
+    }
+  }
+};
 
     return (
       <motion.div
@@ -1026,11 +1170,11 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateCart, onRemoveFromCart, onCh
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30 }}
-            className="fixed right-0 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl"
+            className="fixed right-0 text-gray-500 top-0 h-full w-full max-w-md bg-white z-50 shadow-2xl"
           >
             <div className="p-6 h-full flex flex-col">
               <div className="flex items-center justify-between mb-8">
-                <h2 className="text-2xl font-bold">Your Cart</h2>
+                <h2 className="text-2xl text-gray-500 font-bold">Your Cart</h2>
                 <button
                   onClick={onClose}
                   className="w-8 h-8 rounded-full border-2 border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
@@ -1042,7 +1186,7 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateCart, onRemoveFromCart, onCh
               <div className="flex-1 overflow-y-auto">
                 {cart.length === 0 ? (
                   <div className="text-center text-gray-500 mt-8">
-                    <Ticket size={48} className="mx-auto mb-4 text-gray-300" />
+                    <Ticket size={48} className="mx-auto mb-4 text-gray-400" />
                     <p>Your cart is empty</p>
                     <p className="text-sm mt-2">Add some tickets to get started!</p>
                   </div>
@@ -1066,23 +1210,23 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateCart, onRemoveFromCart, onCh
                           </div>
                           <p className="text-gray-600 text-sm">₦{item.price.toLocaleString()} each</p>
                           
-                          <div className="flex items-center space-x-3 mt-3">
+                          <div className="flex text-gray-500 items-center space-x-3 mt-3">
                             <button
                               onClick={() => onUpdateCart(item.type, -1)}
-                              className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
+                              className="w-6 h-6 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
                             >
                               -
                             </button>
                             <span className="font-bold w-8 text-center">{item.quantity}</span>
                             <button
                               onClick={() => onUpdateCart(item.type, 1)}
-                              className="w-6 h-6 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
+                              className="w-6 h-6 text-gray-500 rounded-full border border-gray-300 flex items-center justify-center hover:border-gray-400 transition-colors"
                             >
                               +
                             </button>
                           </div>
                           
-                          <div className="mt-2 text-sm font-semibold">
+                          <div className="mt-2 text-gray-500 text-sm font-semibold">
                             Subtotal: ₦{(item.price * item.quantity).toLocaleString()}
                           </div>
                         </div>
@@ -1096,7 +1240,7 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateCart, onRemoveFromCart, onCh
                 <div className="border-t pt-6">
                   <div className="flex justify-between items-center mb-4">
                     <span className="text-lg font-semibold">Total:</span>
-                    <span className="text-2xl font-bold text-[#e74c3c]">₦{totalAmount.toLocaleString()}</span>
+                    <span className="text-2xl font-bold  from-gray-900 via-gray-800 to-black">₦{totalAmount.toLocaleString()}</span>
                   </div>
                   
                   <div className="space-y-3">
@@ -1104,7 +1248,7 @@ const CartModal = ({ isOpen, onClose, cart, onUpdateCart, onRemoveFromCart, onCh
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={onCheckout}
-                      className="w-full bg-[#e74c3c] text-white py-4 rounded-lg font-bold text-lg"
+                      className="w-full bg-linear-to-br from-gray-900 via-gray-800 to-black py-4 rounded-lg font-bold text-lg"
                     >
                       PROCEED TO CHECKOUT
                     </motion.button>
@@ -1204,10 +1348,10 @@ const FreeTicketModal = ({
             transition={{ type: 'spring', damping: 30 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-linear-to-br from-gray-900 via-gray-800 to-blackrounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Get Your Free Tickets</h2>
+                  <h2 className="text-2xl font-bold text-white">Get Your Free Tickets</h2>
                   <button
                     onClick={onClose}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -1229,7 +1373,7 @@ const FreeTicketModal = ({
                     <span>Total:</span>
                     <span className="text-green-600">FREE</span>
                   </div>
-                  <p className="text-xs text-green-600 mt-2">
+                  <p className="text-xs text-gray-700 mt-2">
                     🎉 No payment required! Just fill in your details to get your free tickets.
                   </p>
                 </div>
@@ -1237,7 +1381,7 @@ const FreeTicketModal = ({
                 {/* Customer Information Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Full Name *
                     </label>
                     <input
@@ -1245,13 +1389,13 @@ const FreeTicketModal = ({
                       required
                       value={customerInfo.name}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border text-white border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       placeholder="Enter your full name"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Email Address *
                     </label>
                     <input
@@ -1259,20 +1403,20 @@ const FreeTicketModal = ({
                       required
                       value={customerInfo.email}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border text-white border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       placeholder="Enter your email"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Phone Number
                     </label>
                     <input
                       type="tel"
                       value={customerInfo.phone}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border text-gray-500 border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border text-white border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
                       placeholder="Enter your phone number"
                     />
                   </div>
@@ -1282,10 +1426,10 @@ const FreeTicketModal = ({
                     disabled={isProcessing}
                     whileHover={{ scale: isProcessing ? 1 : 1.02 }}
                     whileTap={{ scale: isProcessing ? 1 : 0.98 }}
-                    className="w-full bg-green-500 text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full bg-white text-green-600 py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? (
-                      <div className="flex items-center justify-center space-x-2">
+                      <div className="flex items-center  justify-center space-x-2">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span>Getting Your Tickets...</span>
                       </div>
@@ -1295,7 +1439,7 @@ const FreeTicketModal = ({
                   </motion.button>
                 </form>
 
-                <div className="mt-4 text-center text-sm text-gray-700">
+                <div className="mt-4 text-center text-sm text-white">
                   <p>📧 Your tickets will be sent to your email immediately</p>
                 </div>
               </div>
@@ -1398,10 +1542,10 @@ const PaymentModal = ({ isOpen, onClose, customerInfo, setCustomerInfo, cart, to
             transition={{ type: 'spring', damping: 30 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-linear-to-br from-gray-900 via-gray-800 to-black rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Complete Your Purchase</h2>
+                  <h2 className="text-2xl font-bold text-white">Complete Your Purchase</h2>
                   <button
                     onClick={onClose}
                     className="p-2 hover:bg-gray-100 rounded-full transition-colors"
@@ -1412,25 +1556,25 @@ const PaymentModal = ({ isOpen, onClose, customerInfo, setCustomerInfo, cart, to
 
                 {/* Order Summary */}
                 <div className="mb-6">
-                  <h3 className="text-lg font-semibold mb-3">Order Summary</h3>
+                  <h3 className="text-lg text-white font-semibold mb-3">Order Summary</h3>
                   <div className="space-y-2">
                     {cart.map(item => (
-                      <div key={item.type} className="flex justify-between text-sm">
+                      <div key={item.type} className="flex text-green-600 justify-between text-sm">
                         <span>{item.quantity}x {item.name}</span>
                         <span>₦{(item.price * item.quantity).toLocaleString()}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="border-t mt-3 pt-3 flex justify-between font-bold">
+                  <div className="border-t text-white mt-3 pt-3 flex justify-between font-bold">
                     <span>Total:</span>
-                    <span className="text-[#e74c3c]">₦{totalAmount.toLocaleString()}</span>
+                    <span className="text-green-600">₦{totalAmount.toLocaleString()}</span>
                   </div>
                 </div>
 
                 {/* Customer Information Form */}
                 <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Full Name *
                     </label>
                     <input
@@ -1438,13 +1582,13 @@ const PaymentModal = ({ isOpen, onClose, customerInfo, setCustomerInfo, cart, to
                       required
                       value={customerInfo.name}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, name: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
+                      className="w-full text-white px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
                       placeholder="Enter your full name"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Email Address *
                     </label>
                     <input
@@ -1452,43 +1596,43 @@ const PaymentModal = ({ isOpen, onClose, customerInfo, setCustomerInfo, cart, to
                       required
                       value={customerInfo.email}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
+                      className="w-full text-white px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
                       placeholder="Enter your email"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm font-medium text-white mb-1">
                       Phone Number
                     </label>
                     <input
                       type="tel"
                       value={customerInfo.phone}
                       onChange={(e) => setCustomerInfo(prev => ({ ...prev, phone: e.target.value }))}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
+                      className="w-full text-white px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#e74c3c] focus:border-transparent"
                       placeholder="Enter your phone number"
                     />
                   </div>
 
-                  <motion.button
-                    type="submit"
-                    disabled={isProcessing || cart.length === 0}
-                    whileHover={{ scale: isProcessing ? 1 : 1.02 }}
-                    whileTap={{ scale: isProcessing ? 1 : 0.98 }}
-                    className="w-full bg-[#e74c3c] text-white py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {isProcessing ? (
-                      <div className="flex items-center justify-center space-x-2">
-                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                        <span>Processing...</span>
-                      </div>
-                    ) : (
-                      `Pay ₦${totalAmount.toLocaleString()}`
-                    )}
-                  </motion.button>
+                <motion.button
+  type="submit"
+  disabled={isProcessing || cart.length === 0}
+  whileHover={{ scale: isProcessing ? 1 : 1.02 }}
+  whileTap={{ scale: isProcessing ? 1 : 0.98 }}
+  className="w-full text-green-600 bg-white py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+>
+  {isProcessing ? (
+    <div className="flex items-center justify-center space-x-2">
+      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+      <span>Processing...</span>
+    </div>
+  ) : (
+    `Pay with Paystack - ₦${totalAmount.toLocaleString()}`
+  )}
+                </motion.button>
                 </form>
 
-                <div className="mt-4 text-center text-sm text-gray-500">
+                <div className="mt-4 text-center text-sm text-gray-400">
                   <p>🔒 Your payment is secure and encrypted</p>
                 </div>
               </div>
