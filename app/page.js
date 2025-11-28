@@ -2,6 +2,7 @@
 'use client';
 
 import Head from 'next/head';
+import Image from 'next/image';
 import { useState, useEffect, useMemo } from 'react';
 import EmailTemplates from './components/EmailTemplates';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -763,11 +764,17 @@ const ArtistSection = () => (
           transition={{ duration: 0.8 }}
           className="relative"
         >
-          <div className="aspect-square bg-linear-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden">
-            <div className="w-full h-full flex items-center justify-center">
-              <Music size={100} className="text-gray-400" />
-            </div>
-          </div>
+<div className="aspect-square bg-linear-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden">
+  <div className="w-full h-full flex items-center justify-center">
+        <Image
+      src="/lloyd.jpg"
+      alt="Lloyd Section"
+      width={400}
+      height={400}
+      className="object-cover w-full h-full"
+    />
+  </div>
+</div>
           
           <div className="absolute -top-4 -left-4 w-8 h-8 border-t-2 border-l-2 border-[#e74c3c]"></div>
           <div className="absolute -bottom-4 -right-4 w-8 h-8 border-b-2 border-r-2 border-[#e74c3c]"></div>
