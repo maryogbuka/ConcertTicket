@@ -798,9 +798,9 @@ const ArtistSection = () => (
              
             </p>   
             <p className="text-lg text-gray-600 leading-relaxed">
-            His debut single, “Marcopolo” featuring Magnito, was released in October 2020 and is available on all 
-            major music platforms. Lloyd further solidified his presence with hit songs like 
-            “Thanksgiving” from his GANGSHIT album a track that sparked one of Africa’s biggest Instagram giveaways, 
+            His debut single, <span className="font-bold text-gray-900"> “Marcopolo” </span> featuring Magnito, was released in October 2020 and is available on all 
+            major music platforms. Lloyd further solidified his presence with hit songs like  
+            <span className="font-bold text-gray-900"> “Thanksgiving” </span> from his <span className="font-bold text-gray-900"> GANGSHIT </span> album a track that sparked one of Africa’s biggest Instagram giveaways, 
             earning massive attention and engagement across the continent.
           </p>
           
