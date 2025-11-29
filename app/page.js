@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useState, useEffect, useMemo } from 'react';
 import EmailTemplates from './components/EmailTemplates';
 import { motion, AnimatePresence } from 'framer-motion';
+import { FaTwitter, FaInstagram, FaFacebookF, FaYoutube, FaTiktok } from 'react-icons/fa';
 import { Music, Ticket, Star, Users, Calendar, MapPin, X } from 'lucide-react';
 
 export default function ConcertTicketWebsite() {
@@ -59,7 +60,7 @@ export default function ConcertTicketWebsite() {
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const totalAmount = cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
 
-    const handleCheckout = () => {
+   const handleCheckout = () => {
   if (cart.length === 0) return;
   setIsCartOpen(false);
   
@@ -69,6 +70,11 @@ export default function ConcertTicketWebsite() {
   
   if (hasOnlyRegularTickets) {
     // Only free tickets - go to free ticket modal
+    // But since we're bypassing cart for free tickets, this shouldn't happen often
+    // You might want to handle this case differently
+    const freeItem = cart.find(item => item.type === 'regular');
+    setCurrentTicketType('regular');
+    setCurrentQuantity(freeItem.quantity);
     setIsFreeTicketOpen(true);
   } else if (hasVipTickets) {
     // Has VIP tickets - go to payment modal
@@ -292,15 +298,16 @@ const processTicketOrder = async (ticketData, customerInfo, isFree = false) => {
     const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
     if (isFree) {
-      // Free ticket flow
-      console.log('🎟️ Processing free ticket...');
+      // Free ticket flow - completely separate from cart
+      console.log('🎟️ Processing free ticket directly...');
       await processFreeTicket(ticketData, customerInfo, ticketId);
       await sendEmailNotification(ticketData, customerInfo, ticketId, true);
       
+      // NO CART OPERATIONS HERE - free tickets bypass cart completely
       return ticketId;
       
     } else {
-      // VIP ticket flow - redirect to Paystack
+      // VIP ticket flow - uses cart system
       console.log('💼 Processing VIP ticket with payment...');
       
       // First, create a temporary ticket record (pending payment)
@@ -309,7 +316,6 @@ const processTicketOrder = async (ticketData, customerInfo, isFree = false) => {
       // Then initialize Paystack payment
       await initializePaystackPayment(ticketData, customerInfo, ticketId);
       
-      // Don't return ticketId here since we're redirecting to Paystack
       return null;
     }
     
@@ -531,20 +537,21 @@ if (window.showFancyNotification) {
       />
 
                   {/* Free Ticket Modal */}
-      <FreeTicketModal
-        isOpen={isFreeTicketOpen}
-        onClose={() => {
-          setIsFreeTicketOpen(false);
-          setCustomerInfo({ email: '', name: '', phone: '' });
-        }}
-        customerInfo={customerInfo}
-        setCustomerInfo={setCustomerInfo}
-        ticketType={currentTicketType}
-        quantity={currentQuantity}
-        isProcessing={isProcessing}
-        setIsProcessing={setIsProcessing}
-        processTicketOrder={processTicketOrder}
-      />
+     <FreeTicketModal
+  isOpen={isFreeTicketOpen}
+  onClose={() => {
+    setIsFreeTicketOpen(false);
+    setCustomerInfo({ email: '', name: '', phone: '' });
+  }}
+  customerInfo={customerInfo}
+  setCustomerInfo={setCustomerInfo}
+  ticketType={currentTicketType}
+  quantity={currentQuantity}
+  isProcessing={isProcessing}
+  setIsProcessing={setIsProcessing}
+  processTicketOrder={processTicketOrder}
+  // NO setCart prop here
+/>
 
       {/* Payment Modal */}
       <PaymentModal
@@ -598,7 +605,7 @@ const Navigation = ({ cartCount, onCartClick, activeSection, setActiveSection })
       }`}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between p-4">
-        <h1 className="font-bold text-white text-lg">🎵 Event</h1>
+        <h1 className="font-bold text-white text-lg">🎵 SECTION TOUR</h1>
 
         <ul className="flex gap-6 text-white">
           {navItems.map((item) => (
@@ -863,9 +870,9 @@ const TicketSection = ({ ticketTypes, onAddToCart, onDirectFreeTicket }) => {
       <motion.div
         initial={{ opacity: 0, y: 50, scale: 0.9 }}
         whileInView={{ opacity: 1, y: 0, scale: 1 }}
-        transition={{ duration: 0.6, type: "spring" }}
-        whileHover={{ y: -8, scale: 1.02, transition: { duration: 0.3 } }}
-        className="relative overflow-hidden rounded-2xl shadow-xl group p-6 text-white max-w-sm mx-auto"
+        transition={{ duration: 0.2, type: "spring" }}
+        whileHover={{ y: -8, scale: 1.02,  }}
+        className="relative  overflow-hidden rounded-2xl shadow-xl p-12 text-white max-w-md  "
       >
         {/* Background matching hero section */}
         <div className="absolute inset-0 bg-linear-to-br from-gray-900 via-gray-800 to-black opacity-95 group-hover:opacity-100 transition-opacity duration-500"></div>
@@ -1081,7 +1088,7 @@ const TicketSection = ({ ticketTypes, onAddToCart, onDirectFreeTicket }) => {
           </motion.p>
         </motion.div>
 
-        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+<div className="grid md:grid-cols-2 sm:p-24 gap-44 max-w-6xl mx-auto">
           {Object.entries(ticketTypes).map(([type, data]) => (
             <TicketCard 
               key={type} 
@@ -1297,7 +1304,7 @@ const FreeTicketModal = ({
   quantity, 
   isProcessing, 
   setIsProcessing,
-  processTicketOrder // ADD THIS PROP
+  processTicketOrder
 }) => {
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -1323,7 +1330,7 @@ const FreeTicketModal = ({
 
       console.log('🎟️ Starting free ticket processing...');
       
-      // Process the free ticket order using the passed function
+      // Process the free ticket order directly (no cart involved)
       await processTicketOrder(ticketData, customerInfo, true);
       
       console.log('✅ Free ticket process completed');
@@ -1333,7 +1340,7 @@ const FreeTicketModal = ({
         window.showFancyNotification('success', 'Tickets Confirmed!', `Your ${quantity} free ticket(s) have been reserved! Check your email for confirmation.`);
       }
       
-      // Close modal and reset
+      // Close modal and reset - NO CART INVOLVEMENT
       onClose();
       setCustomerInfo({ email: '', name: '', phone: '' });
       
@@ -1365,7 +1372,7 @@ const FreeTicketModal = ({
             transition={{ type: 'spring', damping: 30 }}
             className="fixed inset-0 z-50 flex items-center justify-center p-4"
           >
-            <div className="bg-linear-to-br from-gray-900 via-gray-800 to-blackrounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-linear-to-br from-gray-900 via-gray-800 to-black rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
               <div className="p-6">
                 <div className="flex items-center justify-between mb-6">
                   <h2 className="text-2xl font-bold text-white">Get Your Free Tickets</h2>
@@ -1446,7 +1453,7 @@ const FreeTicketModal = ({
                     className="w-full bg-white text-green-600 py-4 rounded-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isProcessing ? (
-                      <div className="flex items-center  justify-center space-x-2">
+                      <div className="flex items-center justify-center space-x-2">
                         <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
                         <span>Getting Your Tickets...</span>
                       </div>
@@ -1492,18 +1499,18 @@ const FancyNotification = () => {
           initial={{ opacity: 0, y: -100, scale: 0.8 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{ opacity: 0, y: -100, scale: 0.8 }}
-          className={`fixed top-14 right-4 z-50 max-w-sm w-full ${
+          className={`fixed top-14 right-4 z-50 max-w-sm w-56 ${
             notification.type === 'success' 
               ? 'bg-linear-to-br from-gray-900 via-gray-800 to-black border-[#e74c3c]' 
               : 'bg-linear-to-br from-gray-900 via-gray-800 to-black border-red-500'
-          } border-2 text-white rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md`}
+          } border-2 text-white rounded-2xl shadow-2xl overflow-hidden `}
         >
-          <div className="p-28">
+          <div className="p-8">
             <div className="flex items-center space-x-3">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
                 notification.type === 'success' 
-                  ? 'bg-[#e74c3c]' 
-                  : 'bg-red-500'
+                  ? 'bg-green-600' 
+                  : 'bg-green-500'
               } border border-white/30`}>
                 {notification.type === 'success' ? '🎉' : '❌'}
               </div>
@@ -1672,7 +1679,7 @@ const Footer = () => (
           whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="w-3 h-3 bg-[#e74c3c] rounded-full"></div>
-          <span className="text-xl font-bold">DECEMBER NIGHTS</span>
+          <span className="text-xl font-bold">SECTION TOUR</span>
         </motion.div>
         
         <p className="text-gray-400 mb-6">
@@ -1680,14 +1687,49 @@ const Footer = () => (
         </p>
         
         <div className="flex justify-center space-x-6">
-          {['Twitter', 'Instagram', 'Facebook', 'YouTube'].map((social) => (
+          {[
+            { 
+              name: 'Twitter', 
+              icon: <FaTwitter size={20} />, 
+              color: 'hover:text-blue-400',
+              url: 'https://twitter.com'
+            },
+            { 
+              name: 'Instagram', 
+              icon: <FaInstagram size={20} />, 
+              color: 'hover:text-pink-500',
+              url: 'https://instagram.com'
+            },
+            { 
+              name: 'Facebook', 
+              icon: <FaFacebookF size={20} />, 
+              color: 'hover:text-blue-600',
+              url: 'https://facebook.com'
+            },
+            { 
+              name: 'YouTube', 
+              icon: <FaYoutube size={20} />, 
+              color: 'hover:text-red-500',
+              url: 'https://youtube.com'
+            },
+            { 
+              name: 'TikTok', 
+              icon: <FaTiktok size={20} />, 
+              color: 'hover:text-black',
+              url: 'https://tiktok.com'
+            }
+          ].map((social) => (
             <motion.a
-              key={social}
-              href="#"
-              whileHover={{ y: -2 }}
-              className="text-gray-400 hover:text-white transition-colors"
+              key={social.name}
+              href={social.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              whileHover={{ y: -3, scale: 1.1 }}
+              whileTap={{ scale: 0.95 }}
+              className={`text-gray-400 ${social.color} transition-colors duration-300 bg-gray-800 p-3 rounded-full hover:bg-gray-700`}
+              aria-label={social.name}
             >
-              {social}
+              {social.icon}
             </motion.a>
           ))}
         </div>
