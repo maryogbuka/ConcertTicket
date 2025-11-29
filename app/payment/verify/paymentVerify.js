@@ -4,12 +4,10 @@ import { useSearchParams } from 'next/navigation';
 
 export default function PaymentVerify() {
   const searchParams = useSearchParams();
-  const [status, setStatus] = useState('verifying');
+  const [isReady] = useState(true);
 
-  useEffect(() => {
-    const reference = searchParams.get('reference');
-    setStatus(reference ? 'success' : 'error');
-  }, [searchParams]);
+  const reference = searchParams.get('reference');
+  const status = isReady ? (reference ? 'success' : 'error') : 'verifying';
 
   useEffect(() => {
     if (status === 'success') {
