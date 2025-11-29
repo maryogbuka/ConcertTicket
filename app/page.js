@@ -677,8 +677,7 @@ const HeroSection = ({ onTicketsClick }) => {
           transition={{ duration: 0.8 }}
         >
           SECTION
-          <br />
-          DECEMBER
+          CLUB
           <motion.span
             className="block text-[#e74c3c]"
             initial={{ opacity: 0, scale: 0.5 }}
@@ -786,12 +785,20 @@ const ArtistSection = () => (
           transition={{ duration: 0.8, delay: 0.2 }}
           className="space-y-6"
         >
-          <h3 className="text-3xl font-bold text-gray-900">Lloyd Chucks Davidson</h3>
+          <h3 className="text-3xl font-bold text-gray-900">LLOYD </h3>
           <p className="text-lg text-gray-600 leading-relaxed">
-            Popularly known as Lloyd Section (born November 11), is a Nigerian artist, songwriter and performer from Edo State. 
-            He developed a love for music at an early stage of his life and took it professionally in 2015, becoming more intentional 
-            about his craft. Lloyd created his own label, Section Music Group, and secured a distribution deal with Bentley Records. 
-            His first single &quot;Marcopolo&quot; featuring Magnito, released in October 2020, is available on all music platforms.
+            
+            Lloyd Section is a Nigerian artist, songwriter, and performer known for his distinctive sound 
+            and bold creative direction in contemporary music. He began pursuing music professionally in 2015 and 
+            has since evolved into a more intentional and refined artist. Lloyd runs his own record label, 
+            Section Music Group, through which he continues to build his brand and expand his influence.
+             
+            </p>   
+            <p className="text-lg text-gray-600 leading-relaxed">
+            His debut single, “Marcopolo” featuring Magnito, was released in October 2020 and is available on all 
+            major music platforms. Lloyd further solidified his presence with hit songs like 
+            “Thanksgiving” from his GANGSHIT album a track that sparked one of Africa’s biggest Instagram giveaways, 
+            earning massive attention and engagement across the continent.
           </p>
           
           <div className="grid grid-cols-2 gap-4 pt-6">
