@@ -649,6 +649,15 @@ const HeroSection = ({ onTicketsClick }) => {
     { left: 95, top: 5, duration: 4.3, delay: 0.4 },
   ], []);
 
+  const scrollToTickets = () => {
+    const ticketsSection = document.getElementById('tickets');
+    if (ticketsSection) {
+      const offset = 80; // Adjust this value based on your header height
+      const top = ticketsSection.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  };
+
   return (
     <section id="home" className="relative h-screen flex items-center justify-center overflow-hidden">
       <div className="absolute inset-0 bg-linear-to-br from-gray-900 via-gray-800 to-black"></div>
@@ -724,7 +733,7 @@ const HeroSection = ({ onTicketsClick }) => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={onTicketsClick}
+            onClick={scrollToTickets}
             className="bg-[#e74c3c] text-white px-8 py-4 rounded-full font-bold text-lg shadow-lg hover:shadow-xl transition-all duration-300"
           >
             GET TICKETS
