@@ -752,7 +752,10 @@ const ArtistSection = () => (
         transition={{ duration: 0.8 }}
         className="text-center mb-16"
       >
-        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">LLOYD SECTION</h2>
+        <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">MY WORLD</h2>
+          
+        <h5 className="text-1xl md:text-2xl font-bold text-gray-900 mb-4">Built by Vision, Powered by Purpose.</h5>
+
         <div className="w-20 h-1 bg-[#e74c3c] mx-auto"></div>
       </motion.div>
 
@@ -785,7 +788,7 @@ const ArtistSection = () => (
           transition={{ duration: 0.8, delay: 0.2 }}
           className="space-y-6"
         >
-          <h3 className="text-3xl font-bold text-gray-900">LLOYD </h3>
+          <h3 className="text-3xl font-bold text-gray-900">LLOYD SECTION </h3>
           <p className="text-lg text-gray-600 leading-relaxed">
             
             Lloyd Section is a Nigerian artist, songwriter, and performer known for his distinctive sound 
