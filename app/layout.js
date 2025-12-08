@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Section Club Tour",
-  description: "Evening With LLOYD SECTION",
+  title: "Jesus Club Tour",
+  description: "Evening With OZY  GIRLY",
 };
 
 export default function RootLayout({ children }) {
