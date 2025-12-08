@@ -605,7 +605,7 @@ const Navigation = ({ cartCount, onCartClick, activeSection, setActiveSection })
       }`}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between p-4">
-        <h1 className="font-bold text-white text-lg">🎵 SECTION TOUR</h1>
+        <h1 className="font-bold text-white text-lg">🎵 JESUS CLUB TOUR</h1>
 
         <ul className="flex gap-6 text-white">
           {navItems.map((item) => (
@@ -692,7 +692,7 @@ const HeroSection = ({ onTicketsClick }) => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
         >
-          SECTION
+          JESUS
           CLUB
           <motion.span
             className="block text-[#e74c3c]"
@@ -710,7 +710,7 @@ const HeroSection = ({ onTicketsClick }) => {
           animate={{ opacity: 1 }}
           transition={{ delay: 0.8, duration: 0.8 }}
         >
-          An Extraordinary evening with LLOYD SECTION
+          An Extraordinary evening with The GIRLY OZY 
         </motion.p>
 
         <motion.div
@@ -785,8 +785,8 @@ const ArtistSection = () => (
 <div className="aspect-square bg-linear-to-br from-gray-200 to-gray-300 rounded-2xl overflow-hidden">
   <div className="w-full h-full flex items-center justify-center">
         <Image
-      src="/lloyd.jpg"
-      alt="Lloyd Section"
+      src="/ann1.jpg"
+      alt="OZY GIRLY"
       width={400}
       height={400}
       className="object-cover w-full h-full"
@@ -804,19 +804,19 @@ const ArtistSection = () => (
           transition={{ duration: 0.8, delay: 0.2 }}
           className="space-y-6"
         >
-          <h3 className="text-3xl font-bold text-gray-900">LLOYD SECTION </h3>
+          <h3 className="text-3xl font-bold text-gray-900">OZY GIRLY </h3>
           <p className="text-lg text-gray-600 leading-relaxed">
             
-            Lloyd Section is a Nigerian artist, songwriter, and performer known for his distinctive sound 
-            and bold creative direction in contemporary music. He began pursuing music professionally in 2015 and 
-            has since evolved into a more intentional and refined artist. Lloyd runs his own record label, 
-            Section Music Group, through which he continues to build his brand and expand his influence.
+            OZY GIRLY is a Nigerian artist, songwriter, and performer known for his distinctive sound 
+            and bold creative direction in contemporary music. She began pursuing music professionally in 2015 and 
+            has since evolved into a more intentional and refined artist. OZY GIRLY runs her own record label, 
+            Section Music Group, through which she continues to build her brand and expand her influence.
              
             </p>   
             <p className="text-lg text-gray-600 leading-relaxed">
-            His debut single, <span className="font-bold text-gray-900"> “Marcopolo” </span> featuring Magnito, was released in October 2020 and is available on all 
-            major music platforms. Lloyd further solidified his presence with hit songs like  
-            <span className="font-bold text-gray-900"> “Thanksgiving” </span> from his <span className="font-bold text-gray-900"> GANGSHIT </span> album a track that sparked one of Africa’s biggest Instagram giveaways, 
+            Her debut single, <span className="font-bold text-gray-900"> “Jesus reigns” </span> featuring Victoria, was released in October 2020 and is available on all 
+            major music platforms. OZY GIRLY further solidified her presence with hit songs like  
+            <span className="font-bold text-gray-900"> “Just Me” </span> from her <span className="font-bold text-gray-900"> GOD Over All </span> album a track that sparked one of Africa’s biggest Instagram giveaways, 
             earning massive attention and engagement across the continent.
           </p>
           
@@ -1097,7 +1097,7 @@ const TicketSection = ({ ticketTypes, onAddToCart, onDirectFreeTicket }) => {
           </motion.p>
         </motion.div>
 
-<div className="grid md:grid-cols-2 sm:p-24 gap-44 max-w-6xl mx-auto">
+<div className="grid md:grid-cols-1 sm:p-24 gap-44 max-w-6xl mx-auto">
           {Object.entries(ticketTypes).map(([type, data]) => (
             <TicketCard 
               key={type} 
@@ -1688,7 +1688,7 @@ const Footer = () => (
           whileInView={{ opacity: 1, y: 0 }}
         >
           <div className="w-3 h-3 bg-[#e74c3c] rounded-full"></div>
-          <span className="text-xl font-bold">SECTION TOUR</span>
+          <span className="text-xl font-bold">JESUS CLUB TOUR</span>
         </motion.div>
         
         <p className="text-gray-400 mb-6">
@@ -1701,13 +1701,13 @@ const Footer = () => (
               name: 'Twitter', 
               icon: <FaTwitter size={20} />, 
               color: 'hover:text-blue-400',
-              url: 'https://twitter.com'
+              url: 'https://twitter.com/marianhycienth'
             },
             { 
               name: 'Instagram', 
               icon: <FaInstagram size={20} />, 
               color: 'hover:text-pink-500',
-              url: 'https://instagram.com'
+              url: 'https://instagram.com/marianhycienth'
             },
             { 
               name: 'Facebook', 
